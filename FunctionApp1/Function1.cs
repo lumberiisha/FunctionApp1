@@ -22,11 +22,16 @@ namespace FunctionApp1
         }
 
         [Function("Function1")]
-        public async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequestData req,
-            [Microsoft.Azure.Functions.Worker.Http.FromBody] CalculatorRequest person,
-            ILogger log)
-        {
+        public async Task<HttpResponseData> Run(
+        [HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequestData req,
+        [Microsoft.Azure.Functions.Worker.Http.FromBody] CalculatorRequest person,
+        FunctionContext executionContext)
+    {
+
+            req.Headers.Add("Access-Control-Allow-Origin", "*");
+            req.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+            req.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
             // Read the request body as string for debugging purposes
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
             var requestUrl = "https://secure.ubs.com/public/api/v1/retirement/calculators/tax-saving";
@@ -95,7 +100,9 @@ namespace FunctionApp1
                     using JsonDocument jsonDoc = JsonDocument.Parse(responseBody);
                     string taxSavings = jsonDoc.RootElement.GetProperty("taxSavings").GetString();
 
-                    return new OkObjectResult(taxSavings);
+                    var res = req.CreateResponse(System.Net.HttpStatusCode.OK);
+                    await res.WriteStringAsync(taxSavings);
+                    return res;
                 }
                 else
                 {
@@ -104,10 +111,9 @@ namespace FunctionApp1
             }
             catch (Exception ex)
             {
-                return new ObjectResult($"Error: {ex.Message}")
-                {
-                    StatusCode = 500 // Internal server error
-                };
+                var res = req.CreateResponse(System.Net.HttpStatusCode.BadRequest);
+                await res.WriteStringAsync($"error:{ex.Message}");
+                return res;
             }
         }
 
